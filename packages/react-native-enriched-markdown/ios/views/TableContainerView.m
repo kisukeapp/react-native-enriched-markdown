@@ -121,9 +121,32 @@ static NSArray<NSArray<TableCellData *> *> *ENRMTableBuildRows(MarkdownASTNode *
 
   NSMutableArray *allRows = [NSMutableArray array];
   NSUInteger colCount = 0;
+  BOOL hidesEmptyHeader = NO;
+
+  for (MarkdownASTNode *section in tableNode.children) {
+    if (section.type != MarkdownNodeTypeTableHead)
+      continue;
+    hidesEmptyHeader = YES;
+    for (MarkdownASTNode *rowNode in section.children) {
+      if (rowNode.type != MarkdownNodeTypeTableRow)
+        continue;
+      for (MarkdownASTNode *cellNode in rowNode.children) {
+        NSString *plainText = ENRMTablePlainTextFromNode(cellNode);
+        if ([plainText stringByTrimmingCharactersInSet:NSCharacterSet.whitespaceAndNewlineCharacterSet].length > 0) {
+          hidesEmptyHeader = NO;
+          break;
+        }
+      }
+      if (!hidesEmptyHeader)
+        break;
+    }
+    break;
+  }
 
   for (MarkdownASTNode *section in tableNode.children) {
     BOOL isSectionHead = (section.type == MarkdownNodeTypeTableHead);
+    if (isSectionHead && hidesEmptyHeader)
+      continue;
 
     for (MarkdownASTNode *rowNode in section.children) {
       if (rowNode.type != MarkdownNodeTypeTableRow)

@@ -53,7 +53,7 @@ Set `flavor="github"` to enable GitHub Flavored Markdown features like tables an
 />
 ```
 
-Tables support column alignment, rich text in cells (bold, italic, code, links), horizontal scrolling, header styling, alternating row colors, and a long-press context menu with "Copy" and "Copy as Markdown".
+Tables support column alignment, rich text in cells (bold, italic, code, links), horizontal scrolling, header styling, alternating row colors, and a long-press context menu with "Copy" and "Copy as Markdown". On native platforms, when every header cell is empty, the syntactic header row is omitted from presentation and accessibility output.
 
 ### Task Lists
 
