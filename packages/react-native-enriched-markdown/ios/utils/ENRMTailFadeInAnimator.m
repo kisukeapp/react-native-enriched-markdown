@@ -4,22 +4,26 @@
 #include <TargetConditionals.h>
 
 static const NSTimeInterval kFadeDuration = 0.20;
+static const NSTimeInterval kSegmentDelay = 0.024;
+static const NSTimeInterval kAcceleratedSegmentDelay = 0.006;
+static const NSTimeInterval kMaximumVisualDelay = 0.80;
 
-typedef struct {
-  NSRange range;
-  __unsafe_unretained RCTUIColor *color;
-} ENRMColorEntry;
+@interface ENRMFadeEntry : NSObject
+@property (nonatomic) NSRange range;
+@property (nonatomic, strong) RCTUIColor *color;
+@property (nonatomic) CFTimeInterval startTime;
+@end
+
+@implementation ENRMFadeEntry
+@end
 
 @implementation ENRMTailFadeInAnimator {
   __weak ENRMPlatformTextView *_textView;
 #if !TARGET_OS_OSX
   CADisplayLink *_displayLink;
 #endif
-  CFTimeInterval _startTime;
-
-  NSArray<RCTUIColor *> *_retainedColors;
-  ENRMColorEntry *_colorEntries;
-  NSUInteger _entriesCount;
+  NSMutableArray<ENRMFadeEntry *> *_entries;
+  CFTimeInterval _nextSegmentStartTime;
 }
 
 - (instancetype)initWithTextView:(ENRMPlatformTextView *)textView
@@ -27,6 +31,7 @@ typedef struct {
   self = [super init];
   if (self) {
     _textView = textView;
+    _entries = [NSMutableArray array];
   }
   return self;
 }
@@ -35,17 +40,40 @@ typedef struct {
 {
 #if !TARGET_OS_OSX
   [_displayLink invalidate];
-  _displayLink = nil;
 #endif
-  [self cleanupEntries];
+}
+
+- (NSArray<NSValue *> *)wordSegmentsInString:(NSString *)text range:(NSRange)range
+{
+  NSMutableArray<NSValue *> *wordRanges = [NSMutableArray array];
+  [text enumerateSubstringsInRange:range
+                           options:NSStringEnumerationByWords | NSStringEnumerationSubstringNotRequired
+                        usingBlock:^(__unused NSString *substring, NSRange substringRange,
+                                     __unused NSRange enclosingRange, __unused BOOL *stop) {
+                          [wordRanges addObject:[NSValue valueWithRange:substringRange]];
+                        }];
+  if (wordRanges.count == 0) {
+    return @[ [NSValue valueWithRange:range] ];
+  }
+
+  NSMutableArray<NSValue *> *segments = [NSMutableArray arrayWithCapacity:wordRanges.count];
+  for (NSUInteger index = 0; index < wordRanges.count; index++) {
+    NSUInteger start = index == 0 ? range.location : wordRanges[index].rangeValue.location;
+    NSUInteger end = index + 1 < wordRanges.count ? wordRanges[index + 1].rangeValue.location : NSMaxRange(range);
+    [segments addObject:[NSValue valueWithRange:NSMakeRange(start, end - start)]];
+  }
+  return segments;
 }
 
 - (void)animateFrom:(NSUInteger)tailStart to:(NSUInteger)tailEnd
 {
-  [self cancel];
-
   NSTextStorage *storage = _textView.textStorage;
-  if (!storage || tailEnd <= tailStart || tailEnd > storage.length)
+  if (!storage)
+    return;
+
+  CFTimeInterval now = CACurrentMediaTime();
+  [self applyEntriesAtTime:now storage:storage];
+  if (tailEnd <= tailStart || tailEnd > storage.length)
     return;
 
 #if !TARGET_OS_OSX
@@ -54,85 +82,75 @@ typedef struct {
   }
 #endif
 
-  NSRange range = NSMakeRange(tailStart, tailEnd - tailStart);
+  NSString *text = storage.string;
+  for (NSValue *value in [self wordSegmentsInString:text range:NSMakeRange(tailStart, tailEnd - tailStart)]) {
+    NSRange segmentRange = value.rangeValue;
+    CFTimeInterval segmentStart = MAX(_nextSegmentStartTime, now);
+    CFTimeInterval delay = MAX(segmentStart - now, 0.0);
+    _nextSegmentStartTime = segmentStart + (delay < kMaximumVisualDelay ? kSegmentDelay : kAcceleratedSegmentDelay);
 
-  [self snapshotColorsInRange:range storage:storage];
-  [self updateAlpha:0.0];
+    [storage enumerateAttribute:NSForegroundColorAttributeName
+                        inRange:segmentRange
+                        options:0
+                     usingBlock:^(RCTUIColor *color, NSRange colorRange, __unused BOOL *stop) {
+                       ENRMFadeEntry *entry = [ENRMFadeEntry new];
+                       entry.range = colorRange;
+                       entry.color = color ?: [RCTUIColor labelColor];
+                       entry.startTime = segmentStart;
+                       [self->_entries addObject:entry];
+                     }];
+  }
+
+  [self applyEntriesAtTime:now storage:storage];
 
 #if !TARGET_OS_OSX
-  _startTime = CACurrentMediaTime();
-  _displayLink = [CADisplayLink displayLinkWithTarget:self selector:@selector(step:)];
-  // 0 tells the system to use the display's maximum frame rate — 60 Hz on standard displays and 120 Hz on ProMotion ones
-  _displayLink.preferredFramesPerSecond = 0;
-  [_displayLink addToRunLoop:[NSRunLoop mainRunLoop] forMode:NSRunLoopCommonModes];
+  if (!_displayLink) {
+    _displayLink = [CADisplayLink displayLinkWithTarget:self selector:@selector(step:)];
+    _displayLink.preferredFramesPerSecond = 0;
+    [_displayLink addToRunLoop:[NSRunLoop mainRunLoop] forMode:NSRunLoopCommonModes];
+  }
 #else
-  // TODO: Implement the tail fade-in animation on macOS.
-  // CADisplayLink doesn't exist on macOS; the equivalent is CVDisplayLink (Core Video)
-  // or an NSTimer driven at the display refresh rate. The iOS step:/eased-progress
-  // logic below can be reused directly once a display-sync callback is wired up.
-  // TODO: When this is implemented, gate it on
-  // NSWorkspace.sharedWorkspace.accessibilityDisplayShouldReduceMotion so macOS
-  // users with Reduce Motion enabled also skip the fade.
-  [self updateAlpha:1.0];
-  [self cleanupEntries];
+  [self cancel];
 #endif
 }
 
 #if !TARGET_OS_OSX
 - (void)step:(CADisplayLink *)link
 {
-  CFTimeInterval elapsed = CACurrentMediaTime() - _startTime;
-  CGFloat progress = fmin(elapsed / kFadeDuration, 1.0);
-
-  CGFloat eased = 1.0 - (1.0 - progress) * (1.0 - progress);
-
-  [self updateAlpha:eased];
-
-  if (progress >= 1.0) {
-    [self cancel];
+  NSTextStorage *storage = _textView.textStorage;
+  if (!storage)
+    return;
+  [self applyEntriesAtTime:CACurrentMediaTime() storage:storage];
+  if (_entries.count == 0) {
+    [_displayLink invalidate];
+    _displayLink = nil;
   }
 }
 #endif
 
-- (void)updateAlpha:(CGFloat)alpha
+- (void)applyEntriesAtTime:(CFTimeInterval)now storage:(NSTextStorage *)storage
 {
-  NSTextStorage *storage = _textView.textStorage;
-  if (!storage || _entriesCount == 0)
+  if (_entries.count == 0)
     return;
 
+  NSMutableArray<ENRMFadeEntry *> *completed = [NSMutableArray array];
   [storage beginEditing];
-  for (NSUInteger i = 0; i < _entriesCount; i++) {
-    ENRMColorEntry entry = _colorEntries[i];
-    if (NSMaxRange(entry.range) <= storage.length) {
-      RCTUIColor *fadedColor = [entry.color colorWithAlphaComponent:alpha];
-      [storage addAttribute:NSForegroundColorAttributeName value:fadedColor range:entry.range];
+  for (ENRMFadeEntry *entry in _entries) {
+    if (NSMaxRange(entry.range) > storage.length) {
+      [completed addObject:entry];
+      continue;
+    }
+    CGFloat progress = fmin(MAX((now - entry.startTime) / kFadeDuration, 0.0), 1.0);
+    CGFloat eased = 1.0 - (1.0 - progress) * (1.0 - progress);
+    [storage addAttribute:NSForegroundColorAttributeName
+                    value:[entry.color colorWithAlphaComponent:eased]
+                    range:entry.range];
+    if (progress >= 1.0) {
+      [completed addObject:entry];
     }
   }
   [storage endEditing];
-}
-
-- (void)snapshotColorsInRange:(NSRange)range storage:(NSTextStorage *)storage
-{
-  [self cleanupEntries];
-
-  NSMutableArray<RCTUIColor *> *colors = [NSMutableArray array];
-  NSMutableArray<NSValue *> *ranges = [NSMutableArray array];
-  [storage enumerateAttribute:NSForegroundColorAttributeName
-                      inRange:range
-                      options:0
-                   usingBlock:^(RCTUIColor *color, NSRange subRange, BOOL *stop) {
-                     [colors addObject:color ?: [RCTUIColor labelColor]];
-                     [ranges addObject:[NSValue valueWithRange:subRange]];
-                   }];
-
-  _entriesCount = colors.count;
-  _retainedColors = [colors copy];
-  _colorEntries = malloc(sizeof(ENRMColorEntry) * _entriesCount);
-
-  for (NSUInteger i = 0; i < _entriesCount; i++) {
-    _colorEntries[i].color = _retainedColors[i];
-    _colorEntries[i].range = [ranges[i] rangeValue];
-  }
+  [_entries removeObjectsInArray:completed];
 }
 
 - (void)cancel
@@ -141,21 +159,18 @@ typedef struct {
   [_displayLink invalidate];
   _displayLink = nil;
 #endif
-
-  if (_entriesCount > 0) {
-    [self updateAlpha:1.0];
-    [self cleanupEntries];
+  NSTextStorage *storage = _textView.textStorage;
+  if (storage) {
+    [storage beginEditing];
+    for (ENRMFadeEntry *entry in _entries) {
+      if (NSMaxRange(entry.range) <= storage.length) {
+        [storage addAttribute:NSForegroundColorAttributeName value:entry.color range:entry.range];
+      }
+    }
+    [storage endEditing];
   }
-}
-
-- (void)cleanupEntries
-{
-  if (_colorEntries) {
-    free(_colorEntries);
-    _colorEntries = NULL;
-  }
-  _retainedColors = nil;
-  _entriesCount = 0;
+  [_entries removeAllObjects];
+  _nextSegmentStartTime = 0;
 }
 
 @end

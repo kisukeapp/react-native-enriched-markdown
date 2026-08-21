@@ -3,6 +3,7 @@ package com.swmansion.enriched.markdown.utils.text
 import android.animation.Animator
 import android.animation.AnimatorListenerAdapter
 import android.animation.ValueAnimator
+import android.os.SystemClock
 import android.text.Spannable
 import android.view.animation.LinearInterpolator
 import android.widget.TextView
@@ -15,7 +16,15 @@ class TailFadeInAnimator(
 ) {
   private val viewRef = WeakReference(textView)
 
-  private val activeAnimations = mutableMapOf<FadeInSpan, ValueAnimator>()
+  private data class ActiveFade(
+    val start: Int,
+    val end: Int,
+    val span: FadeInSpan,
+    val animator: ValueAnimator,
+  )
+
+  private val cadence = StreamingTextCadence()
+  private val activeAnimations = mutableMapOf<FadeInSpan, ActiveFade>()
 
   fun animate(
     tailStart: Int,
@@ -28,41 +37,56 @@ class TailFadeInAnimator(
 
     if (isReducedMotionEnabled(textView.context)) return
 
-    val fadeSpan = FadeInSpan().apply { alpha = 0f }
-    spannable.setSpan(fadeSpan, tailStart, tailEnd, Spannable.SPAN_EXCLUSIVE_EXCLUSIVE)
+    retarget()
+    val scheduled = cadence.schedule(spannable, tailStart, tailEnd, SystemClock.uptimeMillis())
+    for (segment in scheduled) {
+      val fadeSpan = FadeInSpan().apply { alpha = 0f }
+      spannable.setSpan(fadeSpan, segment.start, segment.end, Spannable.SPAN_EXCLUSIVE_EXCLUSIVE)
 
-    val animator =
-      ValueAnimator.ofFloat(0f, 1f).apply {
-        duration = FADE_DURATION_MS
-        interpolator = LinearInterpolator()
+      val animator =
+        ValueAnimator.ofFloat(0f, 1f).apply {
+          duration = FADE_DURATION_MS
+          startDelay = segment.delayMs
+          interpolator = LinearInterpolator()
 
-        addUpdateListener { anim ->
-          fadeSpan.alpha = anim.animatedValue as Float
-          val tv = viewRef.get() ?: return@addUpdateListener
-          val currentSpannable = tv.text as? Spannable ?: return@addUpdateListener
-
-          val end = minOf(tailEnd, currentSpannable.length)
-          if (end > tailStart) {
-            currentSpannable.setSpan(fadeSpan, tailStart, end, Spannable.SPAN_EXCLUSIVE_EXCLUSIVE)
+          addUpdateListener { anim ->
+            fadeSpan.alpha = anim.animatedValue as Float
+            val active = activeAnimations[fadeSpan] ?: return@addUpdateListener
+            attach(active)
+            viewRef.get()?.invalidate()
           }
-          tv.invalidate()
+
+          addListener(
+            object : AnimatorListenerAdapter() {
+              override fun onAnimationEnd(animation: Animator) {
+                cleanup(fadeSpan)
+              }
+
+              override fun onAnimationCancel(animation: Animator) {
+                cleanup(fadeSpan)
+              }
+            },
+          )
         }
 
-        addListener(
-          object : AnimatorListenerAdapter() {
-            override fun onAnimationEnd(animation: Animator) {
-              cleanup(fadeSpan)
-            }
+      val active = ActiveFade(segment.start, segment.end, fadeSpan, animator)
+      activeAnimations[fadeSpan] = active
+      animator.start()
+    }
+  }
 
-            override fun onAnimationCancel(animation: Animator) {
-              cleanup(fadeSpan)
-            }
-          },
-        )
-      }
+  /** Reattach in-flight word spans after a fresh native markdown render. */
+  fun retarget() {
+    activeAnimations.values.toList().forEach(::attach)
+  }
 
-    activeAnimations[fadeSpan] = animator
-    animator.start()
+  private fun attach(active: ActiveFade) {
+    val spannable = viewRef.get()?.text as? Spannable ?: return
+    if (active.start >= spannable.length || active.end > spannable.length) {
+      active.animator.cancel()
+      return
+    }
+    spannable.setSpan(active.span, active.start, active.end, Spannable.SPAN_EXCLUSIVE_EXCLUSIVE)
   }
 
   private fun cleanup(span: FadeInSpan) {
@@ -73,12 +97,13 @@ class TailFadeInAnimator(
   }
 
   fun cancelAll() {
-    val spans = activeAnimations.keys.toList()
-    spans.forEach { activeAnimations[it]?.cancel() }
+    val animations = activeAnimations.values.map { it.animator }
+    animations.forEach(ValueAnimator::cancel)
     activeAnimations.clear()
+    cadence.reset()
   }
 
   companion object {
-    private const val FADE_DURATION_MS = 150L
+    private const val FADE_DURATION_MS = 200L
   }
 }

@@ -23,6 +23,7 @@ import com.swmansion.enriched.markdown.spoiler.SpoilerOverlay
 import com.swmansion.enriched.markdown.spoiler.SpoilerOverlayDrawer
 import com.swmansion.enriched.markdown.styles.StyleConfig
 import com.swmansion.enriched.markdown.utils.common.BreakStrategyUtils
+import com.swmansion.enriched.markdown.utils.common.LatestRenderCoordinator
 import com.swmansion.enriched.markdown.utils.text.TailFadeInAnimator
 import com.swmansion.enriched.markdown.utils.text.interaction.CheckboxTouchHelper
 import com.swmansion.enriched.markdown.utils.text.view.LinkLongPressMovementMethod
@@ -59,7 +60,7 @@ class EnrichedMarkdownText
 
     private val mainHandler = Handler(Looper.getMainLooper())
     private val executor = Executors.newSingleThreadExecutor()
-    private var currentRenderId = 0L
+    private val renderCoordinator = LatestRenderCoordinator(executor) { mainHandler.post(it) }
 
     val layoutManager = EnrichedMarkdownTextLayoutManager(this)
 
@@ -87,7 +88,7 @@ class EnrichedMarkdownText
     private var imageRequestHeaders: Map<String, String> = emptyMap()
 
     private var streamingAnimation: Boolean = false
-    private var previousTextLength: Int = 0
+    private var previousRenderedText: String = ""
     private var fadeAnimator: TailFadeInAnimator? = null
     override var spoilerOverlayDrawer: SpoilerOverlayDrawer? = null
       private set
@@ -184,11 +185,11 @@ class EnrichedMarkdownText
       if (streamingAnimation == enabled) return
       streamingAnimation = enabled
       if (enabled) {
-        previousTextLength = text?.length ?: 0
+        previousRenderedText = text?.toString().orEmpty()
       } else {
         fadeAnimator?.cancelAll()
         fadeAnimator = null
-        previousTextLength = 0
+        previousRenderedText = ""
       }
     }
 
@@ -232,43 +233,40 @@ class EnrichedMarkdownText
       val markdown = currentMarkdown
       if (markdown.isEmpty()) return
 
-      val renderId = ++currentRenderId
+      renderCoordinator.schedule(
+        render = {
+          try {
+            val ast =
+              parser.parseMarkdown(markdown, md4cFlags) ?: return@schedule null
 
-      executor.execute {
-        try {
-          val ast =
-            parser.parseMarkdown(markdown, md4cFlags) ?: run {
-              mainHandler.post { if (renderId == currentRenderId && isAttachedToWindow) text = "" }
-              return@execute
-            }
-
-          renderer.configure(style, context)
-          val styledText = renderer.renderDocument(ast, onLinkPressCallback, onLinkLongPressCallback)
-
-          mainHandler.post {
-            if (renderId == currentRenderId) {
-              if (isAttachedToWindow) {
-                applyRenderedText(styledText)
-              } else {
-                pendingStyledText = styledText
-              }
-            }
+            renderer.configure(style, context)
+            renderer.renderDocument(ast, onLinkPressCallback, onLinkLongPressCallback)
+          } catch (error: Exception) {
+            Log.e(TAG, "Render failed: ${error.message}", error)
+            null
           }
-        } catch (e: Exception) {
-          Log.e(TAG, "Render failed: ${e.message}", e)
-          mainHandler.post { if (renderId == currentRenderId && isAttachedToWindow) text = "" }
-        }
-      }
+        },
+        apply = { styledText ->
+          if (isAttachedToWindow) applyRenderedText(styledText) else pendingStyledText = styledText
+        },
+      )
     }
 
     private fun applyRenderedText(styledText: CharSequence) {
-      val tailStart = previousTextLength
+      val nextRenderedText = styledText.toString()
+      val tailStart =
+        if (nextRenderedText.startsWith(previousRenderedText)) {
+          previousRenderedText.length
+        } else {
+          minOf(previousRenderedText.length, nextRenderedText.length)
+        }
 
       markdownStyle?.paragraphStyle?.fontSize?.let {
         setTextSize(TypedValue.COMPLEX_UNIT_PX, it)
       }
 
       text = styledText
+      fadeAnimator?.retarget()
 
       val markdownMovementMethod =
         (movementMethod as? LinkLongPressMovementMethod)
@@ -289,7 +287,7 @@ class EnrichedMarkdownText
           fadeAnimator = TailFadeInAnimator(this)
         }
         fadeAnimator?.animate(tailStart, styledText.length)
-        previousTextLength = styledText.length
+        previousRenderedText = nextRenderedText
       }
 
       applySelectionColors(selectionColor, selectionHandleColor)

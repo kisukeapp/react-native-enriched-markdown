@@ -89,7 +89,7 @@ typedef NS_OPTIONS(NSUInteger, ENRMDirtyFlags) {
   size_t _renderedStyleFingerprint;
   size_t _pendingStyleFingerprint;
 
-  NSUInteger _previousTextLength;
+  NSString *_previousRenderedText;
   ENRMTailFadeInAnimator *_fadeAnimator;
 
   AccessibilityInfo *_accessibilityInfo;
@@ -296,7 +296,8 @@ typedef NS_OPTIONS(NSUInteger, ENRMDirtyFlags) {
                                   selectionEnd:selectionEnd];
         });
     return buildEditMenuForSelection(textView.textStorage, textView.selectedRange, strongSelf->_cachedMarkdown,
-                                     strongSelf->_config, @[ baseMenu ], customItems, strongSelf->_selectionMenuConfig);
+                                     strongSelf->_config, @[ baseMenu ], customItems,
+                                     strongSelf -> _selectionMenuConfig);
   };
 #endif
 
@@ -407,7 +408,11 @@ typedef NS_OPTIONS(NSUInteger, ENRMDirtyFlags) {
 
 - (void)applyRenderedText:(NSMutableAttributedString *)attributedText
 {
-  NSUInteger tailStart = _previousTextLength;
+  NSString *nextRenderedText = attributedText.string ?: @"";
+  NSString *previousRenderedText = _previousRenderedText ?: @"";
+  NSUInteger tailStart = [nextRenderedText hasPrefix:previousRenderedText]
+                             ? previousRenderedText.length
+                             : MIN(previousRenderedText.length, nextRenderedText.length);
 
   NSLayoutManager *layoutManager = _textView.layoutManager;
   if ([layoutManager isKindOfClass:[TextViewLayoutManager class]]) {
@@ -469,7 +474,7 @@ typedef NS_OPTIONS(NSUInteger, ENRMDirtyFlags) {
       _fadeAnimator = [[ENRMTailFadeInAnimator alloc] initWithTextView:_textView];
     }
     [_fadeAnimator animateFrom:tailStart to:attributedText.length];
-    _previousTextLength = attributedText.length;
+    _previousRenderedText = [nextRenderedText copy];
   }
 }
 
@@ -605,11 +610,11 @@ typedef NS_OPTIONS(NSUInteger, ENRMDirtyFlags) {
   if (newViewProps.streamingAnimation != oldViewProps.streamingAnimation) {
     _streamingAnimation = newViewProps.streamingAnimation;
     if (_streamingAnimation) {
-      _previousTextLength = ENRMGetAttributedText(_textView).length;
+      _previousRenderedText = [ENRMGetAttributedText(_textView).string copy] ?: @"";
     } else {
       [_fadeAnimator cancel];
       _fadeAnimator = nil;
-      _previousTextLength = 0;
+      _previousRenderedText = nil;
     }
   }
 
@@ -669,7 +674,7 @@ typedef NS_OPTIONS(NSUInteger, ENRMDirtyFlags) {
 
   [_fadeAnimator cancel];
   _fadeAnimator = nil;
-  _previousTextLength = 0;
+  _previousRenderedText = nil;
   _streamingAnimation = NO;
   _forceHeightUpdateOnNextRender = NO;
   _cachedMarkdown = nil;
