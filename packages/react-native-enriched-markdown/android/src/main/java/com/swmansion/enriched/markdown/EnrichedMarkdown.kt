@@ -20,6 +20,7 @@ import com.swmansion.enriched.markdown.styles.StyleConfig
 import com.swmansion.enriched.markdown.utils.common.BreakStrategyUtils
 import com.swmansion.enriched.markdown.utils.common.CodeBlockStreamingMode
 import com.swmansion.enriched.markdown.utils.common.FeatureFlags
+import com.swmansion.enriched.markdown.utils.common.LatestRenderCoordinator
 import com.swmansion.enriched.markdown.utils.common.MarkdownSegmentRenderer
 import com.swmansion.enriched.markdown.utils.common.RenderedSegment
 import com.swmansion.enriched.markdown.utils.common.SegmentReconciler
@@ -27,6 +28,7 @@ import com.swmansion.enriched.markdown.utils.common.StreamingMarkdownFilter
 import com.swmansion.enriched.markdown.utils.common.TableStreamingMode
 import com.swmansion.enriched.markdown.utils.common.isReducedMotionEnabled
 import com.swmansion.enriched.markdown.utils.common.splitASTIntoSegments
+import com.swmansion.enriched.markdown.utils.text.StreamingTextCadence
 import com.swmansion.enriched.markdown.utils.text.TailFadeInAnimator
 import com.swmansion.enriched.markdown.utils.text.view.SelectionMenuConfig
 import com.swmansion.enriched.markdown.utils.text.view.applySelectionColors
@@ -54,6 +56,7 @@ class EnrichedMarkdown
     private val parser = Parser.shared
     private val mainHandler = Handler(Looper.getMainLooper())
     private val executor: ExecutorService = Executors.newSingleThreadExecutor()
+    private val renderCoordinator = LatestRenderCoordinator(executor) { mainHandler.post(it) }
     private val mathContainerClass: Class<*>? by lazy {
       try {
         Class.forName("com.swmansion.enriched.markdown.views.MathContainerView")
@@ -62,11 +65,20 @@ class EnrichedMarkdown
       }
     }
 
-    private var currentRenderId = 0L
     private val segmentViews = mutableListOf<View>()
     private val segmentSignatures = mutableListOf<Long>()
     private val dirtyFlags = EnumSet.noneOf(DirtyFlag::class.java)
+
+    // One message-wide word cadence shared by every text segment, so the
+    // 24ms word stagger stays continuous across render batches and paragraph
+    // boundaries — mirroring the desktop streaming fade timeline.
+    private val streamingCadence = StreamingTextCadence()
     var streamingAnimation: Boolean = false
+      set(value) {
+        if (field == value) return
+        field = value
+        streamingCadence.reset()
+      }
 
     // used to force a Yoga re-measure when a block image resolves its box height
     var stateWrapper: StateWrapper? = null
@@ -354,6 +366,11 @@ class EnrichedMarkdown
       if (currentMarkdown.isNotEmpty()) scheduleRender()
     }
 
+    private data class RenderOutput(
+      val segments: List<RenderedSegment>,
+      val hasPendingCodeBlock: Boolean,
+    )
+
     private fun scheduleRender() {
       val style = markdownStyle ?: return
       val markdown = currentMarkdown.takeIf { it.isNotEmpty() } ?: return
@@ -361,46 +378,42 @@ class EnrichedMarkdown
       val tableMode = tableStreamingMode
       val codeBlockMode = codeBlockStreamingMode
 
-      val renderId = ++currentRenderId
+      renderCoordinator.schedule(
+        render = {
+          try {
+            val filtered =
+              if (isStreaming) {
+                StreamingMarkdownFilter.renderableMarkdownForStreaming(markdown, tableMode, codeBlockMode)
+              } else {
+                null
+              }
+            val renderableMarkdown = filtered?.markdown ?: markdown
+            val hasPendingCodeBlock = filtered?.endsInsideOpenCodeFence ?: false
 
-      executor.execute {
-        try {
-          val filtered =
-            if (isStreaming) {
-              StreamingMarkdownFilter.renderableMarkdownForStreaming(markdown, tableMode, codeBlockMode)
-            } else {
-              null
-            }
-          val renderableMarkdown = filtered?.markdown ?: markdown
-          val hasPendingCodeBlock = filtered?.endsInsideOpenCodeFence ?: false
+            if (renderableMarkdown.isEmpty()) return@schedule RenderOutput(emptyList(), false)
 
-          if (renderableMarkdown.isEmpty()) {
-            postToMain(renderId) { applyRenderedSegments(emptyList(), style, false) }
-            return@execute
-          }
+            val ast =
+              parser.parseMarkdown(renderableMarkdown, md4cFlags)
+                ?: return@schedule RenderOutput(emptyList(), false)
 
-          val ast =
-            parser.parseMarkdown(renderableMarkdown, md4cFlags) ?: run {
-              postToMain(renderId) { applyRenderedSegments(emptyList(), style, false) }
-              return@execute
-            }
-
-          val segments = splitASTIntoSegments(ast)
-          val renderedSegments =
-            MarkdownSegmentRenderer.render(
-              segments,
-              style,
-              context,
-              onLinkPressCallback,
-              onLinkLongPressCallback,
+            val segments = splitASTIntoSegments(ast)
+            RenderOutput(
+              MarkdownSegmentRenderer.render(
+                segments,
+                style,
+                context,
+                onLinkPressCallback,
+                onLinkLongPressCallback,
+              ),
+              hasPendingCodeBlock,
             )
-
-          postToMain(renderId) { applyRenderedSegments(renderedSegments, style, hasPendingCodeBlock) }
-        } catch (e: Exception) {
-          Log.e(TAG, "Render failed", e)
-          postToMain(renderId) { applyRenderedSegments(emptyList(), style, false) }
-        }
-      }
+          } catch (e: Exception) {
+            Log.e(TAG, "Render failed", e)
+            RenderOutput(emptyList(), false)
+          }
+        },
+        apply = { output -> applyRenderedSegments(output.segments, style, output.hasPendingCodeBlock) },
+      )
     }
 
     // Trailing code block whose closing fence hasn't streamed in yet, if any.
@@ -433,7 +446,10 @@ class EnrichedMarkdown
           updateView = { view, segment -> updateSegmentView(view, segment) },
         )
 
-      result.viewsToRemove.forEach { removeView(it) }
+      result.viewsToRemove.forEach { view ->
+        (view as? EnrichedMarkdownInternalText)?.fadeAnimator?.cancelAll()
+        removeView(view)
+      }
       result.viewsToAttach.forEach { addView(it) }
 
       segmentViews.clear()
@@ -497,6 +513,10 @@ class EnrichedMarkdown
           val tailStart = textView.text?.length ?: 0
           textView.lastElementMarginBottom = segment.lastElementMarginBottom
           textView.applyStyledText(segment.styledText)
+          // The text swap dropped every in-flight fade span with the old
+          // spannable; reattach before the next draw or delay-pending words
+          // pop fully visible and later blink back to transparent.
+          textView.fadeAnimator?.retarget()
           segment.imageSpans.forEach { it.registerTextView(textView) }
           animateTextViewTail(textView, tailStart)
         }
@@ -543,7 +563,10 @@ class EnrichedMarkdown
       if (!streamingAnimation) return
       val textLength = view.text?.length ?: 0
       if (textLength <= tailStart) return
-      TailFadeInAnimator(view).animate(tailStart, textLength)
+      val animator =
+        view.fadeAnimator
+          ?: TailFadeInAnimator(view, streamingCadence).also { view.fadeAnimator = it }
+      animator.animate(tailStart, textLength)
     }
 
     private fun animateBlockViewFadeIn(view: View) {
@@ -644,15 +667,6 @@ class EnrichedMarkdown
       }
     }
 
-    private fun postToMain(
-      renderId: Long,
-      action: () -> Unit,
-    ) {
-      mainHandler.post {
-        if (renderId == currentRenderId) action()
-      }
-    }
-
     override fun onLayout(
       changed: Boolean,
       l: Int,
@@ -738,7 +752,11 @@ class EnrichedMarkdown
     }
 
     fun cleanup() {
+      renderCoordinator.invalidate()
       executor.shutdownNow()
+      segmentViews.filterIsInstance<EnrichedMarkdownInternalText>().forEach {
+        it.fadeAnimator?.cancelAll()
+      }
     }
 
     companion object {

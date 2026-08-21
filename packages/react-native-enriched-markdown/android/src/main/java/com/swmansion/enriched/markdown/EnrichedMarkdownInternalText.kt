@@ -11,6 +11,7 @@ import com.swmansion.enriched.markdown.accessibility.AccessibleMarkdownTextView
 import com.swmansion.enriched.markdown.spoiler.SpoilerCapable
 import com.swmansion.enriched.markdown.spoiler.SpoilerOverlay
 import com.swmansion.enriched.markdown.spoiler.SpoilerOverlayDrawer
+import com.swmansion.enriched.markdown.utils.text.TailFadeInAnimator
 import com.swmansion.enriched.markdown.utils.text.interaction.CheckboxTouchHelper
 import com.swmansion.enriched.markdown.utils.text.view.LinkLongPressMovementMethod
 import com.swmansion.enriched.markdown.utils.text.view.SelectionMenuConfig
@@ -32,6 +33,10 @@ class EnrichedMarkdownInternalText
     BlockSegmentView,
     SpoilerCapable {
     var lastElementMarginBottom: Float = 0f
+
+    // Persistent across renders so in-flight word fades survive text swaps and
+    // the streaming cadence keeps its message-wide timeline.
+    internal var fadeAnimator: TailFadeInAnimator? = null
 
     private val checkboxTouchHelper = CheckboxTouchHelper(this)
 

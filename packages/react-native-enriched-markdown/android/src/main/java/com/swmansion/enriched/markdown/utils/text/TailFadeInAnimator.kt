@@ -5,14 +5,15 @@ import android.animation.AnimatorListenerAdapter
 import android.animation.ValueAnimator
 import android.os.SystemClock
 import android.text.Spannable
-import android.view.animation.LinearInterpolator
+import android.view.animation.PathInterpolator
 import android.widget.TextView
 import com.swmansion.enriched.markdown.spans.FadeInSpan
 import com.swmansion.enriched.markdown.utils.common.isReducedMotionEnabled
 import java.lang.ref.WeakReference
 
-class TailFadeInAnimator(
+internal class TailFadeInAnimator(
   textView: TextView,
+  private val cadence: StreamingTextCadence = StreamingTextCadence(),
 ) {
   private val viewRef = WeakReference(textView)
 
@@ -23,7 +24,6 @@ class TailFadeInAnimator(
     val animator: ValueAnimator,
   )
 
-  private val cadence = StreamingTextCadence()
   private val activeAnimations = mutableMapOf<FadeInSpan, ActiveFade>()
 
   fun animate(
@@ -47,7 +47,7 @@ class TailFadeInAnimator(
         ValueAnimator.ofFloat(0f, 1f).apply {
           duration = FADE_DURATION_MS
           startDelay = segment.delayMs
-          interpolator = LinearInterpolator()
+          interpolator = FADE_INTERPOLATOR
 
           addUpdateListener { anim ->
             fadeSpan.alpha = anim.animatedValue as Float
@@ -96,14 +96,18 @@ class TailFadeInAnimator(
     spannable.removeSpan(span)
   }
 
+  // Cadence lifecycle is owned by the caller: a shared cadence must survive a
+  // single view's teardown so sibling segments keep the message-wide pacing.
   fun cancelAll() {
     val animations = activeAnimations.values.map { it.animator }
     animations.forEach(ValueAnimator::cancel)
     activeAnimations.clear()
-    cadence.reset()
   }
 
   companion object {
     private const val FADE_DURATION_MS = 200L
+
+    // Matches the desktop streaming fade curve: cubic-bezier(.37, .55, .86, .88).
+    private val FADE_INTERPOLATOR = PathInterpolator(0.37f, 0.55f, 0.86f, 0.88f)
   }
 }
