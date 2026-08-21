@@ -55,6 +55,11 @@ class EnrichedMarkdownInternalText
     private var contextMenuItemTexts: List<String> = emptyList()
     private var onContextMenuItemPress: ((itemText: String, selectedText: String, selectionStart: Int, selectionEnd: Int) -> Unit)? = null
     var selectionMenuConfig: SelectionMenuConfig = SelectionMenuConfig()
+    var onImagePressCallback: ((String) -> Unit)? = null
+      set(value) {
+        field = value
+        (movementMethod as? LinkLongPressMovementMethod)?.onImagePress = value
+      }
     var accessibilityLabels: AccessibilityLabels = AccessibilityLabels()
       set(value) {
         field = value
@@ -77,9 +82,10 @@ class EnrichedMarkdownInternalText
     fun applyStyledText(styledText: CharSequence) {
       text = styledText
 
-      if (movementMethod !is LinkLongPressMovementMethod) {
-        movementMethod = LinkLongPressMovementMethod.createInstance()
-      }
+      val markdownMovementMethod =
+        (movementMethod as? LinkLongPressMovementMethod)
+          ?: LinkLongPressMovementMethod.createInstance().also { movementMethod = it }
+      markdownMovementMethod.onImagePress = onImagePressCallback
 
       spoilerOverlayDrawer = SpoilerOverlayDrawer.setupIfNeeded(this, styledText, spoilerOverlayDrawer, spoilerOverlay)
       accessibilityHelper.invalidateAccessibilityItems()

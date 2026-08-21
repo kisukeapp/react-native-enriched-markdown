@@ -3,6 +3,7 @@ import type { MarkdownStyle, Md4cFlags } from './MarkdownStyle';
 import type {
   LinkPressEvent,
   LinkLongPressEvent,
+  ImagePressEvent,
   TaskListItemPressEvent,
 } from './events';
 
@@ -47,6 +48,8 @@ export interface EnrichedMarkdownTextProps extends Omit<
    * @platform ios, android, web
    */
   onLinkLongPress?: (event: LinkLongPressEvent) => void;
+  /** Callback fired when a rendered image is pressed. */
+  onImagePress?: (event: ImagePressEvent) => void;
   /**
    * Callback fired when a task list checkbox is tapped.
    *

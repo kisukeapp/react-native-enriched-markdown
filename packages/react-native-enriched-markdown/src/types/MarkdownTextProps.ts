@@ -4,6 +4,7 @@ import type { AccessibilityLabels } from './AccessibilityLabels';
 import type {
   LinkPressEvent,
   LinkLongPressEvent,
+  ImagePressEvent,
   TaskListItemPressEvent,
   CopyPressEvent,
 } from './events';
@@ -151,6 +152,12 @@ export interface EnrichedMarkdownTextProps extends Omit<ViewProps, 'style'> {
    * @platform ios, android, web
    */
   onLinkLongPress?: (event: LinkLongPressEvent) => void;
+  /**
+   * Callback fired when a rendered image is pressed.
+   * Receives the image URL without changing the renderer's loading or caching behavior.
+   * @platform ios, android, web
+   */
+  onImagePress?: (event: ImagePressEvent) => void;
   /**
    * Callback fired when a task list checkbox is tapped.
    *

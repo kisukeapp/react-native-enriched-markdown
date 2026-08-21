@@ -54,6 +54,7 @@ class EnrichedMarkdownText
     private val renderer = Renderer()
     private var onLinkPressCallback: ((String) -> Unit)? = null
     private var onLinkLongPressCallback: ((String) -> Unit)? = null
+    private var onImagePressCallback: ((String) -> Unit)? = null
     private val checkboxTouchHelper = CheckboxTouchHelper(this)
 
     private val mainHandler = Handler(Looper.getMainLooper())
@@ -269,9 +270,10 @@ class EnrichedMarkdownText
 
       text = styledText
 
-      if (movementMethod !is LinkLongPressMovementMethod) {
-        movementMethod = LinkLongPressMovementMethod.createInstance()
-      }
+      val markdownMovementMethod =
+        (movementMethod as? LinkLongPressMovementMethod)
+          ?: LinkLongPressMovementMethod.createInstance().also { movementMethod = it }
+      markdownMovementMethod.onImagePress = onImagePressCallback
 
       renderer.getCollectedImageSpans().forEach { span ->
         span.registerTextView(this)
@@ -349,6 +351,11 @@ class EnrichedMarkdownText
 
     fun setOnLinkLongPressCallback(callback: (String) -> Unit) {
       onLinkLongPressCallback = callback
+    }
+
+    fun setOnImagePressCallback(callback: (String) -> Unit) {
+      onImagePressCallback = callback
+      (movementMethod as? LinkLongPressMovementMethod)?.onImagePress = callback
     }
 
     fun setOnTaskListItemPressCallback(callback: ((taskIndex: Int, checked: Boolean, itemText: String) -> Unit)?) {

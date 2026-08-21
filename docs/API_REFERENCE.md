@@ -69,6 +69,25 @@ Callback when a link is long pressed. Access URL via `event.url`. On iOS, automa
 />
 ```
 
+### `onImagePress`
+
+Callback when a rendered image is pressed. Access the source URL via `event.url`. Image loading, sizing, and caching remain owned by the native renderer.
+
+| Type                                | Default Value | Platform  |
+| ----------------------------------- | ------------- | --------- |
+| `(event: ImagePressEvent) => void`  | -             | Both, Web |
+
+**Example:**
+
+```tsx
+<EnrichedMarkdownText
+  markdown="![Diagram](https://example.com/diagram.png)"
+  onImagePress={({ url }) => {
+    openImageViewer(url);
+  }}
+/>
+```
+
 ### `onTaskListItemPress`
 
 Callback when a task list checkbox is tapped. Receives `index` (0-based), `checked` (new state after toggling), and `text` (item text).

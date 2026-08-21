@@ -1,4 +1,5 @@
 #import "LinkTapUtils.h"
+#import "ENRMImageAttachment.h"
 #import "ENRMSpoilerTapUtils.h"
 #import "ENRMTextHitTest.h"
 
@@ -10,6 +11,20 @@ NSString *_Nullable linkURLAtTapLocation(ENRMPlatformTextView *textView, ENRMTap
 
   NSAttributedString *attrText = ENRMGetAttributedText(textView);
   return [attrText attribute:@"linkURL" atIndex:characterIndex effectiveRange:NULL];
+}
+
+NSString *_Nullable imageURLAtTapLocation(ENRMPlatformTextView *textView, ENRMTapRecognizer *recognizer)
+{
+  NSUInteger characterIndex = ENRMCharacterIndexForTap(textView, recognizer);
+  if (characterIndex == NSNotFound)
+    return nil;
+
+  NSAttributedString *attrText = ENRMGetAttributedText(textView);
+  id attachment = [attrText attribute:NSAttachmentAttributeName atIndex:characterIndex effectiveRange:NULL];
+  if (![attachment isKindOfClass:[ENRMImageAttachment class]])
+    return nil;
+
+  return ((ENRMImageAttachment *)attachment).imageURL;
 }
 
 NSString *_Nullable linkURLAtRange(ENRMPlatformTextView *textView, NSRange characterRange)
@@ -28,5 +43,6 @@ BOOL isPointOnInteractiveElement(ENRMPlatformTextView *textView, CGPoint point)
     return NO;
 
   NSDictionary *attrs = [ENRMGetAttributedText(textView) attributesAtIndex:charIndex effectiveRange:NULL];
-  return attrs[@"linkURL"] != nil || [attrs[@"TaskItem"] boolValue] || attrs[SpoilerAttributeName] != nil;
+  return attrs[@"linkURL"] != nil || [attrs[NSAttachmentAttributeName] isKindOfClass:[ENRMImageAttachment class]] ||
+         [attrs[@"TaskItem"] boolValue] || attrs[SpoilerAttributeName] != nil;
 }

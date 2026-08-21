@@ -71,6 +71,7 @@ export interface ASTNode {
 export interface RendererCallbacks {
   onLinkPress?: (event: LinkPressEvent) => void;
   onLinkLongPress?: (event: LinkLongPressEvent) => void;
+  onImagePress?: (event: import('../types/events').ImagePressEvent) => void;
   onTaskListItemPress?: (event: TaskListItemPressEvent) => void;
 }
 

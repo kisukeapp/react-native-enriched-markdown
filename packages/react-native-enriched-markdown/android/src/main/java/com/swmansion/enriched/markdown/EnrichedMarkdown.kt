@@ -100,6 +100,7 @@ class EnrichedMarkdown
 
     private var onLinkPressCallback: ((String) -> Unit)? = null
     private var onLinkLongPressCallback: ((String) -> Unit)? = null
+    private var onImagePressCallback: ((String) -> Unit)? = null
     private var onTaskListItemPressCallback: ((Int, Boolean, String) -> Unit)? = null
     private var onCopyPressCallback: ((String, String) -> Unit)? = null
     private var contextMenuItemTexts: List<String> = emptyList()
@@ -249,6 +250,13 @@ class EnrichedMarkdown
 
     fun setOnLinkLongPressCallback(callback: (String) -> Unit) {
       onLinkLongPressCallback = callback
+    }
+
+    fun setOnImagePressCallback(callback: (String) -> Unit) {
+      onImagePressCallback = callback
+      segmentViews.filterIsInstance<EnrichedMarkdownInternalText>().forEach {
+        it.onImagePressCallback = callback
+      }
     }
 
     fun setOnTaskListItemPressCallback(callback: ((taskIndex: Int, checked: Boolean, itemText: String) -> Unit)?) {
@@ -565,6 +573,7 @@ class EnrichedMarkdown
         }
         lastElementMarginBottom = segment.lastElementMarginBottom
         applyStyledText(segment.styledText)
+        onImagePressCallback = this@EnrichedMarkdown.onImagePressCallback
         segment.imageSpans.forEach { it.registerTextView(this) }
 
         onTaskListItemPressCallback = { taskIndex, checked, itemText ->

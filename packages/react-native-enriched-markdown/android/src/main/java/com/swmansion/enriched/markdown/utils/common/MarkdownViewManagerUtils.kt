@@ -7,6 +7,7 @@ import com.facebook.react.uimanager.UIManagerHelper
 import com.swmansion.enriched.markdown.accessibility.AccessibilityLabels
 import com.swmansion.enriched.markdown.events.ContextMenuItemPressEvent
 import com.swmansion.enriched.markdown.events.CopyPressEvent
+import com.swmansion.enriched.markdown.events.ImagePressEvent
 import com.swmansion.enriched.markdown.events.LinkLongPressEvent
 import com.swmansion.enriched.markdown.events.LinkPressEvent
 import com.swmansion.enriched.markdown.events.TaskListItemPressEvent
@@ -18,6 +19,7 @@ fun markdownEventTypeConstants(): MutableMap<String, Any> {
   map[LinkPressEvent.EVENT_NAME] = mapOf("registrationName" to LinkPressEvent.EVENT_NAME)
   map[LinkLongPressEvent.EVENT_NAME] =
     mapOf("registrationName" to LinkLongPressEvent.EVENT_NAME)
+  map[ImagePressEvent.EVENT_NAME] = mapOf("registrationName" to ImagePressEvent.EVENT_NAME)
   map[TaskListItemPressEvent.EVENT_NAME] =
     mapOf("registrationName" to TaskListItemPressEvent.EVENT_NAME)
   map[CopyPressEvent.EVENT_NAME] =
@@ -45,6 +47,16 @@ fun emitLinkLongPress(
   val surfaceId = UIManagerHelper.getSurfaceId(context)
   val eventDispatcher = UIManagerHelper.getEventDispatcherForReactTag(context, view.id)
   eventDispatcher?.dispatchEvent(LinkLongPressEvent(surfaceId, view.id, url))
+}
+
+fun emitImagePress(
+  view: View,
+  url: String,
+) {
+  val context = view.context as com.facebook.react.bridge.ReactContext
+  val surfaceId = UIManagerHelper.getSurfaceId(context)
+  val eventDispatcher = UIManagerHelper.getEventDispatcherForReactTag(context, view.id)
+  eventDispatcher?.dispatchEvent(ImagePressEvent(surfaceId, view.id, url))
 }
 
 fun emitTaskListItemPress(

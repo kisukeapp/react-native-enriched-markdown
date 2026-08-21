@@ -6,6 +6,10 @@ export interface LinkLongPressEvent {
   url: string;
 }
 
+export interface ImagePressEvent {
+  url: string;
+}
+
 export interface TaskListItemPressEvent {
   index: number;
   checked: boolean;

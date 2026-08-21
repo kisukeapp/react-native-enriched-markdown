@@ -50,7 +50,7 @@ function ThematicBreakRenderer({ styles }: RendererProps) {
   return <hr style={styles.thematicBreak} />;
 }
 
-function ImageRenderer({ node, styles }: RendererProps) {
+function ImageRenderer({ node, styles, callbacks }: RendererProps) {
   const url = node.attributes?.url;
   if (!url) return null;
 
@@ -59,7 +59,19 @@ function ImageRenderer({ node, styles }: RendererProps) {
   const imgStyle = node.attributes?.isInline
     ? styles.inlineImage
     : styles.image;
-  return <img src={url} alt={alt} title={title} style={imgStyle} />;
+  return (
+    <img
+      src={url}
+      alt={alt}
+      title={title}
+      style={imgStyle}
+      onClick={
+        callbacks.onImagePress
+          ? () => callbacks.onImagePress?.({ url })
+          : undefined
+      }
+    />
+  );
 }
 
 function LatexMathDisplayRenderer({

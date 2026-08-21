@@ -242,6 +242,10 @@ export interface LinkLongPressEvent {
   url: string;
 }
 
+export interface ImagePressEvent {
+  url: string;
+}
+
 export interface TaskListItemPressEvent {
   index: CodegenTypes.Int32;
   checked: boolean;
@@ -379,6 +383,8 @@ export interface NativeProps extends ViewProps {
    * - Android: Handles long press gestures on links.
    */
   onLinkLongPress?: CodegenTypes.BubblingEventHandler<LinkLongPressEvent>;
+  /** Callback fired when a rendered image is pressed. */
+  onImagePress?: CodegenTypes.BubblingEventHandler<ImagePressEvent>;
   /**
    * Callback fired when a task list checkbox is tapped.
    * Receives the 0-based task index, current checked state, and the item's plain text.

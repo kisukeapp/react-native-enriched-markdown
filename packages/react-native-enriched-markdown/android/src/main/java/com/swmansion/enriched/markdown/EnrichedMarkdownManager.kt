@@ -18,6 +18,7 @@ import com.swmansion.enriched.markdown.utils.common.CodeBlockStreamingMode
 import com.swmansion.enriched.markdown.utils.common.TableStreamingMode
 import com.swmansion.enriched.markdown.utils.common.emitContextMenuItemPress
 import com.swmansion.enriched.markdown.utils.common.emitCopyPress
+import com.swmansion.enriched.markdown.utils.common.emitImagePress
 import com.swmansion.enriched.markdown.utils.common.emitLinkLongPress
 import com.swmansion.enriched.markdown.utils.common.emitLinkPress
 import com.swmansion.enriched.markdown.utils.common.emitTaskListItemPress
@@ -51,6 +52,10 @@ class EnrichedMarkdownManager :
 
     view.setOnLinkLongPressCallback { url ->
       emitLinkLongPress(view, url)
+    }
+
+    view.setOnImagePressCallback { url ->
+      emitImagePress(view, url)
     }
 
     view.setOnTaskListItemPressCallback { taskIndex, checked, itemText ->

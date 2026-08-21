@@ -11,6 +11,9 @@ extern "C" {
 /// Returns the link URL at the tap location, or nil if no link was tapped.
 NSString *_Nullable linkURLAtTapLocation(ENRMPlatformTextView *textView, ENRMTapRecognizer *recognizer);
 
+/// Returns the image URL at the tap location, or nil if no image was tapped.
+NSString *_Nullable imageURLAtTapLocation(ENRMPlatformTextView *textView, ENRMTapRecognizer *recognizer);
+
 /// Returns the link URL at the given character range, or nil if none found.
 NSString *_Nullable linkURLAtRange(ENRMPlatformTextView *textView, NSRange characterRange);
 

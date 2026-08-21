@@ -731,6 +731,13 @@ Class<RCTComponentViewProtocol> EnrichedMarkdownTextCls(void)
     emitter->onLinkLongPress({.url = std::string(url.UTF8String)});
 }
 
+- (void)emitImagePress:(NSString *)url
+{
+  auto emitter = std::static_pointer_cast<EnrichedMarkdownTextEventEmitter const>(_eventEmitter);
+  if (emitter)
+    emitter->onImagePress({.url = std::string(url.UTF8String)});
+}
+
 - (void)emitTaskListItemPress:(NSInteger)index checked:(BOOL)checked text:(NSString *)text
 {
   auto emitter = std::static_pointer_cast<EnrichedMarkdownTextEventEmitter const>(_eventEmitter);
@@ -756,6 +763,12 @@ Class<RCTComponentViewProtocol> EnrichedMarkdownTextCls(void)
 - (void)textTapped:(ENRMTapRecognizer *)recognizer
 {
   ENRMPlatformTextView *textView = (ENRMPlatformTextView *)recognizer.view;
+
+  NSString *imageURL = imageURLAtTapLocation(textView, recognizer);
+  if (imageURL) {
+    [self emitImagePress:imageURL];
+    return;
+  }
 
   if (_enableTaskListItemToggle &&
       handleTaskListTapWithSharedLogic(

@@ -168,6 +168,7 @@ export const EnrichedMarkdownText = ({
   markdownStyle: _markdownStyle,
   onLinkPress: _onLinkPress,
   onLinkLongPress: _onLinkLongPress,
+  onImagePress: _onImagePress,
   onTaskListItemPress: _onTaskListItemPress,
   enableLinkPreview: _enableLinkPreview,
   selectable: _selectable,
