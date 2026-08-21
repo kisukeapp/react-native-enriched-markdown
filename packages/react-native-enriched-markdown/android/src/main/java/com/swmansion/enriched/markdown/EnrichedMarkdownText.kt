@@ -197,6 +197,16 @@ class EnrichedMarkdownText
       updateMeasurementStoreFontScaling()
     }
 
+    /** Permanently release background presentation work for a dropped native view. */
+    fun release() {
+      renderCoordinator.invalidate()
+      executor.shutdownNow()
+      pendingStyledText = null
+      fadeAnimator?.cancelAll()
+      fadeAnimator = null
+      previousRenderedText = ""
+    }
+
     private fun updateMeasurementStoreFontScaling() {
       MeasurementStore.updateFontScalingSettings(id, allowFontScaling, maxFontSizeMultiplier)
     }
