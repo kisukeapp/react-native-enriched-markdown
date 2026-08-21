@@ -4,8 +4,9 @@
   "description": "Markdown-based Rich Text solution for React Native",
   "main": "./lib/module/index",
   "module": "./lib/module/index",
+  "react-native": "./src/index.tsx",
   "source": "./src/index.tsx",
-  "types": "./lib/typescript/src/index.d.ts",
+  "types": "./src/index.tsx",
   "files": [
     "src",
     "lib",
