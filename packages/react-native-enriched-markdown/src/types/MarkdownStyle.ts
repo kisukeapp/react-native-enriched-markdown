@@ -141,6 +141,12 @@ interface CodeStyle {
   color?: string;
   backgroundColor?: string;
   borderColor?: string;
+  /** Radius of each visual line fragment, matching CSS box-decoration-break: clone. */
+  borderRadius?: number;
+  /** Visual inset before and after each rendered line fragment. */
+  paddingHorizontal?: number;
+  /** Visual inset above and below inline-code glyphs. */
+  paddingVertical?: number;
 }
 
 interface ImageStyle {

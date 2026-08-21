@@ -693,6 +693,21 @@ BOOL applyMarkdownStyleToConfig(StyleConfig *config, const MarkdownStyle &newSty
     changed = YES;
   }
 
+  if (newStyle.code.borderRadius != oldStyle.code.borderRadius) {
+    [config setCodeBorderRadius:newStyle.code.borderRadius];
+    changed = YES;
+  }
+
+  if (newStyle.code.paddingHorizontal != oldStyle.code.paddingHorizontal) {
+    [config setCodePaddingHorizontal:newStyle.code.paddingHorizontal];
+    changed = YES;
+  }
+
+  if (newStyle.code.paddingVertical != oldStyle.code.paddingVertical) {
+    [config setCodePaddingVertical:newStyle.code.paddingVertical];
+    changed = YES;
+  }
+
   // ── Image ──────────────────────────────────────────────────────────────────
 
   if (newStyle.image.height != oldStyle.image.height) {

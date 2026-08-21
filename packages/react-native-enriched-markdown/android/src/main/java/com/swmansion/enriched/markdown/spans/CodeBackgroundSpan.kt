@@ -17,7 +17,6 @@ class CodeBackgroundSpan(
   private val styleConfig: StyleConfig,
 ) : LineBackgroundSpan {
   companion object {
-    private const val CORNER_RADIUS = 6.0f
     private const val BORDER_WIDTH = 1.0f
 
     private val sharedBackgroundPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { style = Paint.Style.FILL }
@@ -53,24 +52,28 @@ class CodeBackgroundSpan(
     val spanEnd = text.getSpanEnd(this)
     if (spanStart !in 0 until spanEnd) return
 
-    // 1. Determine relative positioning
-    val isFirst = spanStart >= start
-    val isLast = spanEnd <= end
-
-    // 2. Calculate coordinates
+    // Each laid-out line is a cloned inline box. Measuring the actual fragment
+    // is important: extending a wrapped span to the TextView's right edge makes
+    // short path fragments look like full-width code blocks.
+    val fragmentStart = max(spanStart, start)
+    val fragmentEnd = min(spanEnd, end)
     val finalBottom = adjustBottomForMargin(text, end, bottom)
     val leadingMargin = leadingMarginAt(text, start)
-    val startX = if (isFirst) getHorizontalOffset(text, start, end, spanStart, p, leadingMargin) + left else left.toFloat() + leadingMargin
-    val endX = if (isLast) getHorizontalOffset(text, start, end, spanEnd, p, leadingMargin) + left else right.toFloat()
-
-    rect.set(min(startX, endX), top.toFloat(), max(startX, endX), finalBottom.toFloat())
-
-    // 3. Apply Style
     val codeStyle = styleConfig.codeStyle
+    val startX = getHorizontalOffset(text, start, end, fragmentStart, p, leadingMargin) + left
+    val endX = getHorizontalOffset(text, start, end, fragmentEnd, p, leadingMargin) + left
+    val horizontalPadding = codeStyle.paddingHorizontal
+    val verticalPadding = codeStyle.paddingVertical
+    rect.set(
+      min(startX, endX) - horizontalPadding,
+      top.toFloat() - verticalPadding,
+      max(startX, endX) + horizontalPadding,
+      finalBottom.toFloat() + verticalPadding,
+    )
+
     sharedBackgroundPaint.color = codeStyle.backgroundColor
     sharedBorderPaint.color = codeStyle.borderColor
-
-    drawShapes(canvas, isFirst, isLast)
+    drawFragment(canvas, codeStyle.borderRadius)
   }
 
   /**
@@ -96,83 +99,14 @@ class CodeBackgroundSpan(
     return layout.getPrimaryHorizontal(index - lineStart)
   }
 
-  private fun drawShapes(
+  private fun drawFragment(
     canvas: Canvas,
-    isFirst: Boolean,
-    isLast: Boolean,
+    radius: Float,
   ) {
-    val radii = createRadii(isFirst, isLast)
-
     path.reset()
-    path.addRoundRect(rect, radii, Path.Direction.CW)
+    path.addRoundRect(rect, radius, radius, Path.Direction.CW)
     canvas.drawPath(path, sharedBackgroundPaint)
-
-    if (isFirst && isLast) {
-      canvas.drawPath(path, sharedBorderPaint)
-    } else {
-      drawOpenBorders(canvas, isFirst, isLast)
-    }
-  }
-
-  private fun drawOpenBorders(
-    canvas: Canvas,
-    isFirst: Boolean,
-    isLast: Boolean,
-  ) {
-    val r = CORNER_RADIUS
-    path.reset()
-
-    if (isFirst) {
-      path.moveTo(rect.right, rect.top)
-      path.lineTo(rect.left + r, rect.top)
-      path.quadTo(rect.left, rect.top, rect.left, rect.top + r)
-      path.lineTo(rect.left, rect.bottom - r)
-      path.quadTo(rect.left, rect.bottom, rect.left + r, rect.bottom)
-      path.lineTo(rect.right, rect.bottom)
-    } else if (isLast) {
-      path.moveTo(rect.left, rect.top)
-      path.lineTo(rect.right - r, rect.top)
-      path.quadTo(rect.right, rect.top, rect.right, rect.top + r)
-      path.lineTo(rect.right, rect.bottom - r)
-      path.quadTo(rect.right, rect.bottom, rect.right - r, rect.bottom)
-      path.lineTo(rect.left, rect.bottom)
-    } else {
-      path.moveTo(rect.left, rect.top)
-      path.lineTo(rect.right, rect.top)
-      path.moveTo(rect.left, rect.bottom)
-      path.lineTo(rect.right, rect.bottom)
-    }
     canvas.drawPath(path, sharedBorderPaint)
-  }
-
-  private fun createRadii(
-    isFirst: Boolean,
-    isLast: Boolean,
-  ) = when {
-    isFirst && isLast -> {
-      floatArrayOf(
-        CORNER_RADIUS,
-        CORNER_RADIUS,
-        CORNER_RADIUS,
-        CORNER_RADIUS,
-        CORNER_RADIUS,
-        CORNER_RADIUS,
-        CORNER_RADIUS,
-        CORNER_RADIUS,
-      )
-    }
-
-    isFirst -> {
-      floatArrayOf(CORNER_RADIUS, CORNER_RADIUS, 0f, 0f, 0f, 0f, CORNER_RADIUS, CORNER_RADIUS)
-    }
-
-    isLast -> {
-      floatArrayOf(0f, 0f, CORNER_RADIUS, CORNER_RADIUS, CORNER_RADIUS, CORNER_RADIUS, 0f, 0f)
-    }
-
-    else -> {
-      floatArrayOf(0f, 0f, 0f, 0f, 0f, 0f, 0f, 0f)
-    }
   }
 
   private fun leadingMarginAt(

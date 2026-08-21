@@ -201,6 +201,9 @@ const DEFAULT_NORMALIZED_STYLE = Object.freeze({
     color: normalizeColor('#E01E5A')!,
     backgroundColor: normalizeColor('#FDF2F4')!,
     borderColor: normalizeColor('#F8D7DA')!,
+    borderRadius: 3,
+    paddingHorizontal: 4,
+    paddingVertical: 1,
   },
   image: {
     height: 200,

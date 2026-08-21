@@ -136,6 +136,9 @@ static inline NSString *normalizedFontWeight(NSString *fontWeight)
   RCTUIColor *_codeColor;
   RCTUIColor *_codeBackgroundColor;
   RCTUIColor *_codeBorderColor;
+  CGFloat _codeBorderRadius;
+  CGFloat _codePaddingHorizontal;
+  CGFloat _codePaddingVertical;
   // Image properties
   CGFloat _imageHeight;
   CGFloat _imageMaxHeight;
@@ -419,6 +422,9 @@ static inline NSString *normalizedFontWeight(NSString *fontWeight)
   copy->_codeColor = [_codeColor copy];
   copy->_codeBackgroundColor = [_codeBackgroundColor copy];
   copy->_codeBorderColor = [_codeBorderColor copy];
+  copy->_codeBorderRadius = _codeBorderRadius;
+  copy->_codePaddingHorizontal = _codePaddingHorizontal;
+  copy->_codePaddingVertical = _codePaddingVertical;
   copy->_imageHeight = _imageHeight;
   copy->_imageMaxHeight = _imageMaxHeight;
   copy->_imageAspectRatio = _imageAspectRatio;
@@ -1517,6 +1523,36 @@ static inline NSString *normalizedFontWeight(NSString *fontWeight)
 - (void)setCodeBorderColor:(RCTUIColor *)newValue
 {
   _codeBorderColor = newValue;
+}
+
+- (CGFloat)codeBorderRadius
+{
+  return _codeBorderRadius;
+}
+
+- (void)setCodeBorderRadius:(CGFloat)newValue
+{
+  _codeBorderRadius = newValue;
+}
+
+- (CGFloat)codePaddingHorizontal
+{
+  return _codePaddingHorizontal;
+}
+
+- (void)setCodePaddingHorizontal:(CGFloat)newValue
+{
+  _codePaddingHorizontal = newValue;
+}
+
+- (CGFloat)codePaddingVertical
+{
+  return _codePaddingVertical;
+}
+
+- (void)setCodePaddingVertical:(CGFloat)newValue
+{
+  _codePaddingVertical = newValue;
 }
 
 - (CGFloat)imageHeight

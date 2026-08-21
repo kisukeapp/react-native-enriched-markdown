@@ -205,6 +205,12 @@ NS_ASSUME_NONNULL_BEGIN
 - (void)setCodeBackgroundColor:(RCTUIColor *)newValue;
 - (RCTUIColor *)codeBorderColor;
 - (void)setCodeBorderColor:(RCTUIColor *)newValue;
+- (CGFloat)codeBorderRadius;
+- (void)setCodeBorderRadius:(CGFloat)newValue;
+- (CGFloat)codePaddingHorizontal;
+- (void)setCodePaddingHorizontal:(CGFloat)newValue;
+- (CGFloat)codePaddingVertical;
+- (void)setCodePaddingVertical:(CGFloat)newValue;
 // Image properties
 - (CGFloat)imageHeight;
 - (void)setImageHeight:(CGFloat)newValue;

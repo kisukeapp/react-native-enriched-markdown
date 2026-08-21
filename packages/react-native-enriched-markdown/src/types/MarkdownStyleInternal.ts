@@ -123,6 +123,9 @@ interface CodeStyleInternal {
   color: string;
   backgroundColor: string;
   borderColor: string;
+  borderRadius: number;
+  paddingHorizontal: number;
+  paddingVertical: number;
 }
 
 interface ImageStyleInternal {

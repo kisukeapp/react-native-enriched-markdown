@@ -316,6 +316,13 @@ function App() {
 |----------|------|-------------|
 | `backgroundColor` | `string` | Background color |
 | `borderColor` | `string` | Border color |
+| `borderRadius` | `number` | Corner radius applied independently to every wrapped line fragment |
+| `paddingHorizontal` | `number` | Visual horizontal padding around every wrapped line fragment |
+| `paddingVertical` | `number` | Visual vertical padding around every wrapped line fragment |
+
+Wrapped inline code uses cloned-fragment decoration semantics: each visual line
+is measured to its glyph bounds and receives its own padding, border, and rounded
+corners. A wrapped fragment never expands to the remaining width of its row.
 | `borderRadius` | `number` | Corner radius |
 | `borderWidth` | `number` | Border width |
 | `padding` | `number` | Inner padding |

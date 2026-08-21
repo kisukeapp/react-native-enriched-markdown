@@ -163,6 +163,9 @@ const DEFAULT_NORMALIZED_STYLE: MarkdownStyleInternal = Object.freeze({
     color: '#E01E5A',
     backgroundColor: '#FDF2F4',
     borderColor: '#F8D7DA',
+    borderRadius: 3,
+    paddingHorizontal: 4,
+    paddingVertical: 1,
   },
   image: {
     height: 200,

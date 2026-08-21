@@ -90,6 +90,9 @@ interface CodeStyleInternal {
     color: ColorValue;
     backgroundColor: ColorValue;
     borderColor: ColorValue;
+    borderRadius: CodegenTypes.Float;
+    paddingHorizontal: CodegenTypes.Float;
+    paddingVertical: CodegenTypes.Float;
 }
 interface ImageStyleInternal {
     height: CodegenTypes.Float;

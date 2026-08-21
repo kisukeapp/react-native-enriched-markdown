@@ -1272,6 +1272,9 @@ struct EnrichedMarkdownMarkdownStyleCodeStruct {
   SharedColor color{};
   SharedColor backgroundColor{};
   SharedColor borderColor{};
+  Float borderRadius{0.0};
+  Float paddingHorizontal{0.0};
+  Float paddingVertical{0.0};
 
 #ifdef RN_SERIALIZABLE_STATE
   bool operator==(const EnrichedMarkdownMarkdownStyleCodeStruct &) const = default;
@@ -1283,6 +1286,9 @@ struct EnrichedMarkdownMarkdownStyleCodeStruct {
     result["color"] = ::facebook::react::toDynamic(color);
     result["backgroundColor"] = ::facebook::react::toDynamic(backgroundColor);
     result["borderColor"] = ::facebook::react::toDynamic(borderColor);
+    result["borderRadius"] = borderRadius;
+    result["paddingHorizontal"] = paddingHorizontal;
+    result["paddingVertical"] = paddingVertical;
     return result;
   }
 #endif
@@ -1311,6 +1317,18 @@ static inline void fromRawValue(const PropsParserContext &context, const RawValu
   auto tmp_borderColor = map.find("borderColor");
   if (tmp_borderColor != map.end()) {
     fromRawValue(context, tmp_borderColor->second, result.borderColor);
+  }
+  auto tmp_borderRadius = map.find("borderRadius");
+  if (tmp_borderRadius != map.end()) {
+    fromRawValue(context, tmp_borderRadius->second, result.borderRadius);
+  }
+  auto tmp_paddingHorizontal = map.find("paddingHorizontal");
+  if (tmp_paddingHorizontal != map.end()) {
+    fromRawValue(context, tmp_paddingHorizontal->second, result.paddingHorizontal);
+  }
+  auto tmp_paddingVertical = map.find("paddingVertical");
+  if (tmp_paddingVertical != map.end()) {
+    fromRawValue(context, tmp_paddingVertical->second, result.paddingVertical);
   }
 }
 
@@ -4984,6 +5002,9 @@ struct EnrichedMarkdownTextMarkdownStyleCodeStruct {
   SharedColor color{};
   SharedColor backgroundColor{};
   SharedColor borderColor{};
+  Float borderRadius{0.0};
+  Float paddingHorizontal{0.0};
+  Float paddingVertical{0.0};
 
 #ifdef RN_SERIALIZABLE_STATE
   bool operator==(const EnrichedMarkdownTextMarkdownStyleCodeStruct &) const = default;
@@ -4995,6 +5016,9 @@ struct EnrichedMarkdownTextMarkdownStyleCodeStruct {
     result["color"] = ::facebook::react::toDynamic(color);
     result["backgroundColor"] = ::facebook::react::toDynamic(backgroundColor);
     result["borderColor"] = ::facebook::react::toDynamic(borderColor);
+    result["borderRadius"] = borderRadius;
+    result["paddingHorizontal"] = paddingHorizontal;
+    result["paddingVertical"] = paddingVertical;
     return result;
   }
 #endif
@@ -5023,6 +5047,18 @@ static inline void fromRawValue(const PropsParserContext &context, const RawValu
   auto tmp_borderColor = map.find("borderColor");
   if (tmp_borderColor != map.end()) {
     fromRawValue(context, tmp_borderColor->second, result.borderColor);
+  }
+  auto tmp_borderRadius = map.find("borderRadius");
+  if (tmp_borderRadius != map.end()) {
+    fromRawValue(context, tmp_borderRadius->second, result.borderRadius);
+  }
+  auto tmp_paddingHorizontal = map.find("paddingHorizontal");
+  if (tmp_paddingHorizontal != map.end()) {
+    fromRawValue(context, tmp_paddingHorizontal->second, result.paddingHorizontal);
+  }
+  auto tmp_paddingVertical = map.find("paddingVertical");
+  if (tmp_paddingVertical != map.end()) {
+    fromRawValue(context, tmp_paddingVertical->second, result.paddingVertical);
   }
 }
 
