@@ -1,5 +1,6 @@
 #include "MD4CParser.hpp"
 #include "../md4c/md4c.h"
+#include <cctype>
 #include <cstring>
 #include <vector>
 
@@ -377,6 +378,105 @@ namespace {
 
 using NodeList = std::vector<std::shared_ptr<MarkdownASTNode>>;
 
+bool isUrlBoundary(char value) {
+  return std::isspace(static_cast<unsigned char>(value)) != 0 || value == '<' || value == '>' || value == '"' ||
+         value == '\'';
+}
+
+bool isTrailingUrlPunctuation(char value) {
+  switch (value) {
+    case '.':
+    case ',':
+    case ';':
+    case ':':
+    case '!':
+    case '?':
+    case ')':
+    case ']':
+    case '}':
+      return true;
+    default:
+      return false;
+  }
+}
+
+NodeList linkifyTextNode(const std::shared_ptr<MarkdownASTNode> &node) {
+  const auto &text = node->content;
+  NodeList result;
+  size_t cursor = 0;
+
+  while (cursor < text.size()) {
+    const size_t http = text.find("http://", cursor);
+    const size_t https = text.find("https://", cursor);
+    size_t start = http;
+    if (start == std::string::npos || (https != std::string::npos && https < start)) {
+      start = https;
+    }
+    if (start == std::string::npos)
+      break;
+
+    // A scheme embedded in an identifier is not an autolink.
+    if (start > 0 && !std::isspace(static_cast<unsigned char>(text[start - 1])) && text[start - 1] != '(' &&
+        text[start - 1] != '[' && text[start - 1] != '{') {
+      cursor = start + 1;
+      continue;
+    }
+
+    size_t end = start;
+    while (end < text.size() && !isUrlBoundary(text[end]))
+      ++end;
+    while (end > start && isTrailingUrlPunctuation(text[end - 1]))
+      --end;
+    if (end <= start + 7) {
+      cursor = start + 7;
+      continue;
+    }
+
+    if (start > cursor) {
+      auto prefix = std::make_shared<MarkdownASTNode>(NodeType::Text);
+      prefix->content = text.substr(cursor, start - cursor);
+      result.push_back(std::move(prefix));
+    }
+
+    const std::string url = text.substr(start, end - start);
+    auto link = std::make_shared<MarkdownASTNode>(NodeType::Link);
+    link->setAttribute("url", url);
+    auto label = std::make_shared<MarkdownASTNode>(NodeType::Text);
+    label->content = url;
+    link->addChild(std::move(label));
+    result.push_back(std::move(link));
+    cursor = end;
+  }
+
+  if (result.empty())
+    return {node};
+  if (cursor < text.size()) {
+    auto suffix = std::make_shared<MarkdownASTNode>(NodeType::Text);
+    suffix->content = text.substr(cursor);
+    result.push_back(std::move(suffix));
+  }
+  return result;
+}
+
+void linkifyUnparsedAutolinks(const std::shared_ptr<MarkdownASTNode> &node) {
+  if (!node || node->type == NodeType::Link || node->type == NodeType::Code || node->type == NodeType::CodeBlock) {
+    return;
+  }
+
+  NodeList children;
+  children.reserve(node->children.size());
+  for (const auto &child : node->children) {
+    if (child && child->type == NodeType::Text) {
+      auto linked = linkifyTextNode(child);
+      children.insert(children.end(), linked.begin(), linked.end());
+    } else {
+      linkifyUnparsedAutolinks(child);
+      children.push_back(child);
+    }
+  }
+  node->children = std::move(children);
+}
+
 bool isDisplayMathNode(const MarkdownASTNode &node) {
   return node.type == NodeType::LatexMathDisplay;
 }
@@ -633,6 +733,12 @@ std::shared_ptr<MarkdownASTNode> MD4CParser::parse(const std::string &markdown, 
   if (impl_->root) {
     promoteDisplayMathFromParagraphs(*impl_->root);
     wrapListItemInlineRuns(*impl_->root);
+    // MD4C suppresses permissive autolinks inside emphasis. Recover only URL
+    // text left outside existing link/code nodes so bold and italic URLs keep
+    // the same interaction semantics as plain URLs.
+    if (md4cFlags.permissiveAutolinks) {
+      linkifyUnparsedAutolinks(impl_->root);
+    }
   }
 
   return impl_->root ? impl_->root : std::make_shared<MarkdownASTNode>(NodeType::Document);
