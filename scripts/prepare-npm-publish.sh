@@ -49,6 +49,7 @@ case "$mode" in
     cp "$REPO_ROOT/vendor/ratex-version.json" ratex-version.json
 
     # Ship the vendor scripts so postinstall.mjs can invoke them in consumer mode.
+    cp "$REPO_ROOT/vendor/archive-tools.mjs" archive-tools.mjs
     cp "$REPO_ROOT/vendor/vendor-grammars.mjs" vendor-grammars.mjs
     cp "$REPO_ROOT/vendor/vendor-ratex.mjs" vendor-ratex.mjs
 
@@ -60,7 +61,7 @@ case "$mode" in
     rm -rf cpp
     ln -s ../core/cpp cpp
 
-    rm -f LICENSE ratex-version.json vendor-grammars.mjs vendor-ratex.mjs
+    rm -f LICENSE ratex-version.json archive-tools.mjs vendor-grammars.mjs vendor-ratex.mjs
     rm -rf docs
     ;;
   *)

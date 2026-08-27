@@ -44,6 +44,7 @@ import crypto from 'node:crypto';
 import { fileURLToPath } from 'node:url';
 import { spawnSync, } from 'node:child_process';
 import { createRequire } from 'node:module';
+import { extractArchive } from './archive-tools.mjs';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const repoRoot = path.resolve(here, '..');
@@ -146,8 +147,11 @@ async function fetchRuntimeLib(runtime) {
   const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'ts-runtime-'));
   const tgz = path.join(tmp, 'runtime.tar.gz');
   fs.writeFileSync(tgz, buf);
-  const untar = spawnSync('tar', ['-xzf', tgz, '-C', tmp], { stdio: 'inherit' });
-  if (untar.status !== 0) fail(`tar failed to extract ${tgz} (status ${untar.status})`);
+  try {
+    extractArchive(tgz, tmp, 'tgz');
+  } catch (err) {
+    fail(err.message);
+  }
   const top = fs
     .readdirSync(tmp, { withFileTypes: true })
     .find((e) => e.isDirectory() && e.name.startsWith('tree-sitter-'));
@@ -417,8 +421,11 @@ async function downloadNpmTarballs(grammars, ids) {
       const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'ts-npm-'));
       const tgz = path.join(tmp, 'pkg.tar.gz');
       fs.writeFileSync(tgz, buf);
-      const untar = spawnSync('tar', ['-xzf', tgz, '-C', tmp], { stdio: 'pipe' });
-      if (untar.status !== 0) fail(`tar extract failed for ${key}`);
+      try {
+        extractArchive(tgz, tmp, 'tgz', { stdio: 'pipe' });
+      } catch (err) {
+        fail(`${key}: ${err.message}`);
+      }
       let root = path.join(tmp, 'package');
       if (!fs.existsSync(root)) {
         const fallback = fs.readdirSync(tmp, { withFileTypes: true })

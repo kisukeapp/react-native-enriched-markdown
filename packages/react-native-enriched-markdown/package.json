@@ -18,6 +18,7 @@
     "jest.d.ts",
     "react-native.config.js",
     "postinstall.mjs",
+    "archive-tools.mjs",
     "vendor-grammars.mjs",
     "vendor-ratex.mjs",
     "ratex-version.json",

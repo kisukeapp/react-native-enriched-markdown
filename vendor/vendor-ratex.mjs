@@ -26,7 +26,7 @@ import os from 'node:os';
 import path from 'node:path';
 import crypto from 'node:crypto';
 import { fileURLToPath } from 'node:url';
-import { spawnSync } from 'node:child_process';
+import { extractArchive } from './archive-tools.mjs';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const repoRoot = path.resolve(here, '..');
@@ -81,13 +81,14 @@ async function fetchAndVerify(url, sha256, label) {
   return buf;
 }
 
-function extractTo(buf, ext, args, tmp) {
+function extractTo(buf, ext, destination, tmp) {
   const archive = path.join(tmp, `ratex${ext}`);
   fs.writeFileSync(archive, buf);
-  const tool = ext === '.zip' ? 'unzip' : 'tar';
-  const argv = ext === '.zip' ? ['-q', '-o', archive, ...args] : ['-xzf', archive, ...args];
-  const res = spawnSync(tool, argv, { stdio: 'inherit' });
-  if (res.status !== 0) fail(`${tool} failed to extract ${archive} (status ${res.status})`);
+  try {
+    extractArchive(archive, destination, ext === '.zip' ? 'zip' : 'tgz');
+  } catch (err) {
+    fail(err.message);
+  }
 }
 
 function stampKey(m) {
@@ -128,7 +129,7 @@ async function main() {
   {
     const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'ratex-xcf-'));
     try {
-      extractTo(xcBuf, '.zip', ['-d', outDir], tmp);
+      extractTo(xcBuf, '.zip', outDir, tmp);
     } finally {
       fs.rmSync(tmp, { recursive: true, force: true });
     }
@@ -140,7 +141,7 @@ async function main() {
   {
     const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'ratex-src-'));
     try {
-      extractTo(srcBuf, '.tgz', ['-C', tmp], tmp);
+      extractTo(srcBuf, '.tgz', tmp, tmp);
       const root = path.join(tmp, m.source.prefix);
       if (!fs.existsSync(root)) fail(`source tarball has no ${m.source.prefix}/ directory`);
 
