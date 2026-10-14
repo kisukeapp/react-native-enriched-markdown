@@ -50,8 +50,8 @@
     "sync-md4c": "bash ../../scripts/fetch-md4c.sh",
     "vendor-grammars": "node ../../vendor/vendor-grammars.mjs",
     "vendor-ratex": "node ../../vendor/vendor-ratex.mjs",
-    "prepack": "bash ../../scripts/prepare-npm-publish.sh prepack",
-    "postpack": "bash ../../scripts/prepare-npm-publish.sh postpack",
+    "prepack": "node ../../scripts/prepare-npm-publish.mjs prepack",
+    "postpack": "node ../../scripts/prepare-npm-publish.mjs postpack",
     "prepare": "yarn vendor-grammars && yarn vendor-ratex && bob build"
   },
   "keywords": [

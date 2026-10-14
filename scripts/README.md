@@ -13,7 +13,7 @@ Prints GitHub-release-style markdown for all commits since a tag, with PR links,
 
 Author handles and the New Contributors section are resolved through an authenticated [GitHub CLI](https://cli.github.com/); without it the script falls back to plain commit author names.
 
-## prepare-npm-publish.sh
+## prepare-npm-publish.mjs
 
 `prepack`/`postpack` hooks for the library package: swaps the `cpp` symlink for a real copy of `packages/core/cpp` while packing. Run automatically by npm, not by hand.
 

@@ -71,7 +71,7 @@ end
 module EnrichedMarkdownCodeHighlight
   # Locate grammar-versions.json in both layouts, mirroring how gen-registry.mjs
   # is resolved below: "<podspec_dir>/../../vendor" in the monorepo, and the copy
-  # dropped into "<podspec_dir>/cpp/highlight" by prepare-npm-publish.sh when
+  # dropped into "<podspec_dir>/cpp/highlight" by prepare-npm-publish.mjs when
   # published.
   def self.manifest_path(podspec_dir)
     [
