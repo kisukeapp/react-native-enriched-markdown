@@ -117,12 +117,13 @@ class TableContainerView(
   }
 
   fun applyTableNode(tableNode: MarkdownASTNode) {
-    val hidesEmptyHeader = tableNode.children
-      .firstOrNull { it.type == NodeType.TableHead }
-      ?.children
-      ?.filter { it.type == NodeType.TableRow }
-      ?.flatMap { it.children }
-      ?.all { extractPlainText(it).isBlank() } == true
+    val hidesEmptyHeader =
+      tableNode.children
+        .firstOrNull { it.type == NodeType.TableHead }
+        ?.children
+        ?.filter { it.type == NodeType.TableRow }
+        ?.flatMap { it.children }
+        ?.all { extractPlainText(it).isBlank() } == true
     rows =
       tableNode.children.flatMap { section ->
         val isSectionHead = section.type == NodeType.TableHead
@@ -475,13 +476,15 @@ class TableContainerView(
     ): Float {
       val tableStyle = config.tableStyle
       val headerTypeface = config.tableHeaderTypeface ?: Typeface.DEFAULT_BOLD
+
       fun plainText(node: MarkdownASTNode): String = node.content + node.children.joinToString("") { plainText(it) }
-      val hidesEmptyHeader = node.children
-        .firstOrNull { it.type == NodeType.TableHead }
-        ?.children
-        ?.filter { it.type == NodeType.TableRow }
-        ?.flatMap { it.children }
-        ?.all { plainText(it).isBlank() } == true
+      val hidesEmptyHeader =
+        node.children
+          .firstOrNull { it.type == NodeType.TableHead }
+          ?.children
+          ?.filter { it.type == NodeType.TableRow }
+          ?.flatMap { it.children }
+          ?.all { plainText(it).isBlank() } == true
       val texts =
         node.children.flatMap { section ->
           if (section.type == NodeType.TableHead && hidesEmptyHeader) return@flatMap emptyList()
